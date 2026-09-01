@@ -1,0 +1,114 @@
+
+
+
+
+//*** 3ta led va DHT gemini yozgani app.arduino.cc
+#include "arduino_secrets.h"
+#include "thingProperties.h"
+#include "DHT.h"
+
+#define DHTPIN 15
+#define DHTTYPE DHT11
+
+DHT dht(DHTPIN, DHTTYPE);
+
+const int Switch1 = 18;
+const int Switch2 = 19;
+const int Switch3 = 21;
+
+unsigned long previousMillis = 0; 
+const long interval = 2000;
+
+void DHT_SENSOR_READ();
+
+void setup() {
+  Serial.begin(9600);
+  delay(2000); // DHT11 datchigi to'liq yonib olishi uchun kutish
+  
+  dht.begin();
+  
+  pinMode(Switch1, OUTPUT);
+  pinMode(Switch2, OUTPUT);
+  pinMode(Switch3, OUTPUT);
+  
+  digitalWrite(Switch1, LOW);
+  digitalWrite(Switch2, LOW);
+  digitalWrite(Switch3, LOW);
+
+  initProperties();
+  ArduinoCloud.begin(ArduinoIoTPreferredConnection);
+  
+  setDebugMessageLevel(2);
+  ArduinoCloud.printDebugInfo();
+}
+
+void loop() {
+  ArduinoCloud.update();
+  
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+    DHT_SENSOR_READ();
+  }
+}
+
+void onLight1Change() {
+  if (light1) {
+    digitalWrite(Switch1, HIGH);
+    Serial.println("Light 1: ON");
+  } else {
+    digitalWrite(Switch1, LOW);
+    Serial.println("Light 1: OFF");
+  }
+}
+
+void onLight2Change() {
+  if (light2) {
+    digitalWrite(Switch2, HIGH);
+    Serial.println("Light 2: ON");
+  } else {
+    digitalWrite(Switch2, LOW);
+    Serial.println("Light 2: OFF");
+  }
+}
+
+void onLight3Change() {
+  if (light3) {
+    digitalWrite(Switch3, HIGH);
+    Serial.println("Light 3: ON");
+  } else {
+    digitalWrite(Switch3, LOW);
+    Serial.println("Light 3: OFF");
+  }
+}
+
+void DHT_SENSOR_READ() {
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  
+  // Agar datchikdan NaN (not a number) kelsa yoki uzilgan bo'lsa
+  if (isnan(h) || isnan(t)) {
+    Serial.println("XATOLIK: DHT datchigi uzilgan yoki javob bermayapti!");
+    
+    // Qiymatni majburan 0 qilish va bulutga yuborish
+    if (temperature != 0 || humidity != 0) {
+      temperature = 0;
+      humidity = 0;
+    }
+    
+    // Datchik shinasi qotib qolmasligi uchun uni qayta ishga tushirish (re-init)
+    dht.begin();
+    return;
+  }
+  
+  // Ma'lumot to'g'ri kelganda belgilash
+  temperature = t;
+  humidity = h;
+  
+  Serial.print("Temperature: "); Serial.print(t);
+  Serial.print(" °C | Humidity: "); Serial.print(h); Serial.println(" %");
+}
+
+
+//***YL-105 va NRF24L01 va arduino nana
+//**
