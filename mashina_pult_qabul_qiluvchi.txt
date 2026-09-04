@@ -1,0 +1,132 @@
+Qabul Qiluvchi (Arduino Nano + YL-105 Adapter)Hardware Ulanish Jadvallari:NRF24L01 (YL-105 Adapter) -> Arduino Nano:VCC $\rightarrow$ 5V (Adapter sababli 5V ga ulanadi)GND $\rightarrow$ GNDCE $\rightarrow$ D9CSN $\rightarrow$ D10MOSI $\rightarrow$ D11MISO $\rightarrow$ D12SCK $\rightarrow$ D13Tugmalar va Joystickning Qabul Qiluvchi Pinlariga Mosligi:Pultdagi Harakat / TugmaArduino Nano Chiqish PiniIshlash Prinsipi (Bosilganda)Joystick YUQORIGAD2OLDGA (HIGH / 5V)Joystick PASTGAD3ORQAGA (HIGH / 5V)Joystick CHAPGAD4CHAPGA (HIGH / 5V)Joystick O'NGGAD5O'NGGA (HIGH / 5V)A Tugmasi (D2)D6Faralar (HIGH / 5V)B Tugmasi (D3)D7Stop chiroq (HIGH / 5V)C Tugmasi (D4)D8Gudok / Signal (HIGH / 5V)D Tugmasi (D5)A0Miltillovchi chiroq (HIGH / 5V)E Tugmasi (D6)A1Qo'shimcha rejim 1 (HIGH / 5V)F Tugmasi (D7)A2Qo'shimcha rejim 2 (HIGH / 5V)Joystick Bosilishi (K) (D8)A3Qo'shimcha signal (HIGH / 5V)
+
+
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+RF24 radio(9, 10); // CE = D9, CSN = D10
+
+const byte address[6] = "00001";
+
+struct Data_Package {
+  byte joyX;
+  byte joyY;
+  byte buttonA;
+  byte buttonB;
+  byte buttonC;
+  byte buttonD;
+  byte buttonE;
+  byte buttonF;
+  byte buttonK;
+};
+
+Data_Package data;
+
+// Chiqish pinlari tayinlovi
+const int pinOldga   = 2;
+const int pinOrqaga  = 3;
+const int pinChapga  = 4;
+const int pinOngga   = 5;
+
+const int pinFaralar = 6;
+const int pinStop    = 7;
+const int pinGudok   = 8;
+const int pinFlash   = A0;
+const int pinExtra1  = A1;
+const int pinExtra2  = A2;
+const int pinExtra3  = A3;
+
+unsigned long lastReceiveTime = 0;
+
+void setup() {
+  radio.begin();
+  radio.openReadingPipe(0, address);
+  radio.setChannel(108);           // Uzatuvchi bilan bir xil kanal
+  radio.setDataRate(RF24_250KBPS); // Barqaror tezlik
+  radio.setPALevel(RF24_PA_LOW);   // Quvvat darajasi
+  radio.startListening();
+
+  // Barcha pinlarni chiqish (OUTPUT) qilish
+  pinMode(pinOldga, OUTPUT);
+  pinMode(pinOrqaga, OUTPUT);
+  pinMode(pinChapga, OUTPUT);
+  pinMode(pinOngga, OUTPUT);
+  pinMode(pinFaralar, OUTPUT);
+  pinMode(pinStop, OUTPUT);
+  pinMode(pinGudok, OUTPUT);
+  pinMode(pinFlash, OUTPUT);
+  pinMode(pinExtra1, OUTPUT);
+  pinMode(pinExtra2, OUTPUT);
+  pinMode(pinExtra3, OUTPUT);
+
+  resetOutputs();
+}
+
+void loop() {
+  if (radio.available()) {
+    radio.read(&data, sizeof(Data_Package));
+    lastReceiveTime = millis(); // Signal kelgan vaqtni yangilash
+
+    // Y o'qi (Oldga / Orqaga)
+    if (data.joyY > 170) {
+      digitalWrite(pinOldga, HIGH);
+      digitalWrite(pinOrqaga, LOW);
+    } else if (data.joyY < 80) {
+      digitalWrite(pinOldga, LOW);
+      digitalWrite(pinOrqaga, HIGH);
+    } else {
+      digitalWrite(pinOldga, LOW);
+      digitalWrite(pinOrqaga, LOW);
+    }
+
+    // X o'qi (Chapga / O'ngga)
+    if (data.joyX > 170) {
+      digitalWrite(pinOngga, HIGH);
+      digitalWrite(pinChapga, LOW);
+    } else if (data.joyX < 80) {
+      digitalWrite(pinOngga, LOW);
+      digitalWrite(pinChapga, HIGH);
+    } else {
+      digitalWrite(pinOngga, LOW);
+      digitalWrite(pinChapga, LOW);
+    }
+
+    // Tugmalar bosa deganda pinda 5V chiqadi
+    digitalWrite(pinFaralar, data.buttonA ? HIGH : LOW);
+    digitalWrite(pinStop,    data.buttonB ? HIGH : LOW);
+    digitalWrite(pinGudok,   data.buttonC ? HIGH : LOW);
+    digitalWrite(pinFlash,   data.buttonD ? HIGH : LOW);
+    digitalWrite(pinExtra1,  data.buttonE ? HIGH : LOW);
+    digitalWrite(pinExtra2,  data.buttonF ? HIGH : LOW);
+    digitalWrite(pinExtra3,  data.buttonK ? HIGH : LOW);
+  }
+
+  // Radio signal uzilib qolsa mashina to'xtab xavfsiz bo'lishi uchun (1 soniya kutadi)
+  if (millis() - lastReceiveTime > 1000) {
+    resetOutputs();
+  }
+}
+
+void resetOutputs() {
+  digitalWrite(pinOldga, LOW);
+  digitalWrite(pinOrqaga, LOW);
+  digitalWrite(pinChapga, LOW);
+  digitalWrite(pinOngga, LOW);
+  digitalWrite(pinFaralar, LOW);
+  digitalWrite(pinStop, LOW);
+  digitalWrite(pinGudok, LOW);
+  digitalWrite(pinFlash, LOW);
+  digitalWrite(pinExtra1, LOW);
+  digitalWrite(pinExtra2, LOW);
+  digitalWrite(pinExtra3, LOW);
+}
+
+
+
+
+
+Muhim Maslahat:
+Nano'ga kod yuklashda Tools > Processor > ATmega328P (Old Bootloader) tanlashni unutmang.
+
+Ikala plata quvvatlantirilgach, tugmalarni bosganda pinlarda 5V (HIGH) paydo bo'ladi. Mashina motorlarini bu pinlarga to'g'ridan-to'g'ri ulashingiz taqiqlanadi — D2, D3, D4, D5 pinlarini L298N motor drayveri kirishlariga ulang.
