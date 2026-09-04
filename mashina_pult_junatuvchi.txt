@@ -1,0 +1,66 @@
+1. Uzatuvchi (Funduino Shield + Arduino Uno)
+Hardware ulanishi:
+Funduino Shield'ni Arduino Uno ustiga shunchaki taqasiz.
+
+NRF24L01 modulini Funduino Shield ustidagi tayyor 8-pinli teshikchaga o'rnatasiz (Antenasi tashqariga qarasin).
+
+(Agar YL-105 adapter bilan ulasangiz: VCC -> 5V, GND -> GND, CE -> D9, CSN -> D10, MOSI -> D11, MISO -> D12, SCK -> D13).
+
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+RF24 radio(9, 10); // CE, CSN
+
+const byte address[6] = "00001";
+
+struct Data_Package {
+  byte joyX;
+  byte joyY;
+  byte buttonA;
+  byte buttonB;
+  byte buttonC;
+  byte buttonD;
+  byte buttonE;
+  byte buttonF;
+  byte buttonK;
+};
+
+Data_Package data;
+
+void setup() {
+  radio.begin();
+  radio.openWritingPipe(address);
+  radio.setChannel(108);           // Mos kanal
+  radio.setDataRate(RF24_250KBPS); // Barqaror tezlik
+  radio.setPALevel(RF24_PA_LOW);   // Uzilishni oldini oluvchi quvvat
+  radio.stopListening();
+
+  // Shield tugmalarini kiritish
+  pinMode(2, INPUT_PULLUP); // A
+  pinMode(3, INPUT_PULLUP); // B
+  pinMode(4, INPUT_PULLUP); // C
+  pinMode(5, INPUT_PULLUP); // D
+  pinMode(6, INPUT_PULLUP); // E
+  pinMode(7, INPUT_PULLUP); // F
+  pinMode(8, INPUT_PULLUP); // K (Joystick tugmasi)
+}
+
+void loop() {
+  // Joystick analog qiymatlarini o'qish (0-255)
+  data.joyX = map(analogRead(A0), 0, 1023, 0, 255);
+  data.joyY = map(analogRead(A1), 0, 1023, 0, 255);
+
+  // Tugmalar holatini o'qish (Bosilganda 1, bosilmaganda 0)
+  data.buttonA = !digitalRead(2);
+  data.buttonB = !digitalRead(3);
+  data.buttonC = !digitalRead(4);
+  data.buttonD = !digitalRead(5);
+  data.buttonE = !digitalRead(6);
+  data.buttonF = !digitalRead(7);
+  data.buttonK = !digitalRead(8);
+
+  // Signal yuborish
+  radio.write(&data, sizeof(Data_Package));
+  delay(20);
+}
