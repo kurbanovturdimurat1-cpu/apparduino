@@ -1,0 +1,85 @@
+Kerakli ulanishlar (Sxima)
+1. RFID RC522 moduli → Arduino Uno:
+
+VCC → 3.3V (Eslatma: 5V ga ulamaing, modul kuydi!)
+
+RST → Pin 9
+
+GND → GND
+
+MISO → Pin 12
+
+MOSI → Pin 11
+
+SCK → Pin 13
+
+SDA (SS) → Pin 10
+
+2. LED chiroq → Arduino Uno:
+
+LED (+ Anod, uzun oyog'i) → Pin 2 (220 Om rezistor orqali)
+
+LED (- Katod, qisqa oyog'i) → GND
+
+Arduino KODI
+Kod ishlashi uchun Arduino IDE dasturida MFRC522 kutubxonasi o'rnatilgan bo'lishi kerak (Tools -> Manage Libraries -> "MFRC522" ni qidirib o'rnating).
+
+#include <SPI.h>
+#include <MFRC522.h>
+
+#define SS_PIN 10
+#define RST_PIN 9
+#define LED_PIN 2
+#define BUZZER_PIN 3  // Buzzer ulangan pin
+
+MFRC522 rfrc522(SS_PIN, RST_PIN);
+
+// Bu yerga o'zingizning kartangiz UID kodini yozing
+String MASTER_CARD = "63 F9 D5 2C"; 
+
+void setup() {
+  Serial.begin(9600);
+  SPI.begin();
+  rfrc522.PCD_Init();
+  
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  
+  digitalWrite(LED_PIN, LOW);
+  digitalWrite(BUZZER_PIN, LOW);
+  
+  Serial.println("Kartani o'qagichga yaqinlashtiring...");
+}
+
+void loop() {
+  if (!rfrc522.PICC_IsNewCardPresent() || !rfrc522.PICC_ReadCardSerial()) {
+    return;
+  }
+
+  String content = "";
+  for (byte i = 0; i < rfrc522.uid.size; i++) {
+    content.concat(String(rfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
+    content.concat(String(rfrc522.uid.uidByte[i], HEX));
+  }
+  content.toUpperCase();
+
+  if (content.substring(1) == MASTER_CARD) {
+    Serial.println("Ruxsat berildi!");
+    
+    // Qisqa "DID" tonalligi (2000Hz chastota, 150ms vaqt)
+    tone(BUZZER_PIN, 2000, 150); 
+    
+    digitalWrite(LED_PIN, HIGH);
+    delay(3000); 
+    digitalWrite(LED_PIN, LOW);
+  } else {
+    Serial.println("Noma'lum karta!");
+    
+    // Noma'lum karta uchun 2 marta uzoqroq xato signali
+    tone(BUZZER_PIN, 500, 300);
+    delay(400);
+    tone(BUZZER_PIN, 500, 300);
+  }
+  
+  rfrc522.PICC_HaltA();
+}
